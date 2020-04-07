@@ -621,6 +621,35 @@ internal class E2EEpic3Test : AbstractEndToEndTest() {
     }
 
     @Test
+    fun `grad er NaN`() {
+        håndterSykmelding(Triple(10.februar(2020), 16.februar(2020), 100))
+        // egenmelding: 28. januar og 6.-7. februar
+        håndterSøknadArbeidsgiver(SøknadArbeidsgiver.Periode.Sykdom(10.februar(2020), 16.februar(2020), 100))
+        håndterSykmelding(Triple(24.februar(2020), 29.februar(2020), 100))
+        håndterSøknadArbeidsgiver(SøknadArbeidsgiver.Periode.Sykdom(24.februar(2020), 29.februar(2020), 100))
+        håndterSykmelding(
+            Triple(1.mars(2020), 10.mars(2020), 100),
+            Triple(11.mars(2020), 21.mars(2020), 50)
+        )
+        håndterSykmelding(Triple(13.mars(2020), 31.mars(2020), 100))
+        val arbeidsgiverperioder = listOf(
+            Periode(28.januar(2020), 28.januar(2020)),
+            Periode(6.februar(2020), 16.februar(2020)),
+            Periode(24.februar(2020), 27.februar(2020))
+        )
+        val ferieperioder = listOf(Periode(17.februar(2020), 21.februar(2020)))
+        håndterInntektsmelding(arbeidsgiverperioder, 28.januar(2020), ferieperioder)
+        håndterInntektsmelding(arbeidsgiverperioder, 6.februar(2020), ferieperioder);
+        håndterInntektsmelding(arbeidsgiverperioder, 24.februar(2020), ferieperioder)
+        håndterVilkårsgrunnlag(0, INNTEKT)
+        håndterSøknad(Sykdom(13.mars(2020), 31.mars(2020), 100))
+        håndterYtelser(2)
+        assertTilstander(0, START, MOTTATT_SYKMELDING_FERDIG_GAP, AVSLUTTET_UTEN_UTBETALING, AVVENTER_VILKÅRSPRØVING_ARBEIDSGIVERSØKNAD, AVSLUTTET_UTEN_UTBETALING_MED_INNTEKTSMELDING)
+        assertTilstander(1, START, MOTTATT_SYKMELDING_UFERDIG_GAP, AVSLUTTET_UTEN_UTBETALING, AVSLUTTET_UTEN_UTBETALING_MED_INNTEKTSMELDING)
+        assertTilstander(2, START, MOTTATT_SYKMELDING_UFERDIG_FORLENGELSE, MOTTATT_SYKMELDING_FERDIG_FORLENGELSE, AVVENTER_HISTORIKK, AVVENTER_SIMULERING)
+    }
+
+    @Test
     internal fun `Egenmelding i søknad overstyres av inntektsmelding når IM mottas først`() {
         håndterSykmelding(Triple(20.februar(2020), 8.mars(2020), 100))
         håndterInntektsmelding(listOf(Periode(20.februar(2020), 5.mars(2020))), 20.februar(2020))
