@@ -622,16 +622,23 @@ internal class E2EEpic3Test : AbstractEndToEndTest() {
 
     @Test
     fun `grad er NaN`() {
+        // Comments on what I think should happen per current design: Fred
         håndterSykmelding(Triple(10.februar(2020), 16.februar(2020), 100))
+        // Periode 0: 10.feb - 16.feb grad=100
         // egenmelding: 28. januar og 6.-7. februar
         håndterSøknadArbeidsgiver(SøknadArbeidsgiver.Periode.Sykdom(10.februar(2020), 16.februar(2020), 100))
+        // Periode 0: 10.feb - 16.feb grad=100 - assumed all arbeidsgiver paid
         håndterSykmelding(Triple(24.februar(2020), 29.februar(2020), 100))
+        // Periode 1: 24.feb - 29.feb grad=100
         håndterSøknadArbeidsgiver(SøknadArbeidsgiver.Periode.Sykdom(24.februar(2020), 29.februar(2020), 100))
+        // Periode 1: 24.feb - 29.feb grad=100 - assumed all arbeidsgiver paid
         håndterSykmelding(
             Triple(1.mars(2020), 10.mars(2020), 100),
             Triple(11.mars(2020), 21.mars(2020), 50)
         )
+        // Periode 2: 1.mar - 10.mar grad=100; 11.mar - 21.mar: grad=50
         håndterSykmelding(Triple(13.mars(2020), 31.mars(2020), 100))
+        // Overlaps Periode 2: ignored with Warning added for Periode 2
         val arbeidsgiverperioder = listOf(
             Periode(28.januar(2020), 28.januar(2020)),
             Periode(6.februar(2020), 16.februar(2020)),
@@ -639,11 +646,20 @@ internal class E2EEpic3Test : AbstractEndToEndTest() {
         )
         val ferieperioder = listOf(Periode(17.februar(2020), 21.februar(2020)))
         håndterInntektsmelding(arbeidsgiverperioder, 28.januar(2020), ferieperioder)
-        håndterInntektsmelding(arbeidsgiverperioder, 6.februar(2020), ferieperioder);
+        // Periode 0 expanded: 28.jan - 16.feb; IM processed for periode; validation Need published
+        // Periode 1: IM processed; moves to Done
+        // Periode 2: IM processed; waits for tickle from Periode 0
+        håndterInntektsmelding(arbeidsgiverperioder, 6.februar(2020), ferieperioder)
+        // Ignored with Warning for Periode 0, 1, 2
         håndterInntektsmelding(arbeidsgiverperioder, 24.februar(2020), ferieperioder)
+        // Ignored with Warning for Periode 0, 1, 2
         håndterVilkårsgrunnlag(0, INNTEKT)
+        // Periode 0: Validated, and implicitly validated scope of IM; tickle
+        // Periode 2: awakened by tickle; history Need published
         håndterSøknad(Sykdom(13.mars(2020), 31.mars(2020), 100))
+        // Overlaps Periode 2: ignored with Warning added for Periode 2
         håndterYtelser(2)
+        // Periode 2: history processed; payment calculated; simulation Need published
         assertTilstander(0, START, MOTTATT_SYKMELDING_FERDIG_GAP, AVSLUTTET_UTEN_UTBETALING, AVVENTER_VILKÅRSPRØVING_ARBEIDSGIVERSØKNAD, AVSLUTTET_UTEN_UTBETALING_MED_INNTEKTSMELDING)
         assertTilstander(1, START, MOTTATT_SYKMELDING_UFERDIG_GAP, AVSLUTTET_UTEN_UTBETALING, AVSLUTTET_UTEN_UTBETALING_MED_INNTEKTSMELDING)
         assertTilstander(2, START, MOTTATT_SYKMELDING_UFERDIG_FORLENGELSE, MOTTATT_SYKMELDING_FERDIG_FORLENGELSE, AVVENTER_HISTORIKK, AVVENTER_SIMULERING)
